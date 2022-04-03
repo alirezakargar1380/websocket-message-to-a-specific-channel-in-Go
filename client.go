@@ -72,8 +72,9 @@ func (c *Client) readPump() {
 			break
 		}
 		message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
+
 		c.hub.Broadcast <- &Message{
-			roomID: "",
+			roomID: c.roomID,
 			Data:   message,
 		}
 	}
@@ -104,6 +105,7 @@ func (c *Client) writePump() {
 			if err != nil {
 				return
 			}
+			fmt.Println(message)
 			w.Write(message)
 
 			// Add queued chat messages to the current websocket message.
@@ -129,13 +131,14 @@ func (c *Client) writePump() {
 func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 	params := r.URL.Query()
 	key1 := params.Get("d")
-	fmt.Println(key1)
+	fmt.Println("room key is: " + key1)
+
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	client := &Client{roomID: "", hub: hub, conn: conn, send: make(chan []byte, 256)}
+	client := &Client{roomID: key1, hub: hub, conn: conn, send: make(chan []byte, 256)}
 	client.hub.register <- client
 
 	// Allow collection of memory referenced by the caller by doing all work in

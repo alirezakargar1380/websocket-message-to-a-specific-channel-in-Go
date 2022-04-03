@@ -4,6 +4,8 @@
 
 package main
 
+import "fmt"
+
 type Message struct {
 	roomID string
 	Data   []byte
@@ -14,6 +16,7 @@ type Message struct {
 type Hub struct {
 	// Registered clients.
 	clients map[*Client]bool
+	rooms   map[string]map[*Client]bool
 
 	// Inbound messages from the clients.
 	Broadcast chan *Message
@@ -34,25 +37,53 @@ func newHub() *Hub {
 	}
 }
 
+// var roomss Hub.rooms
 func (h *Hub) run() {
 	for {
 		select {
 		case client := <-h.register:
-			h.clients[client] = true
+
+			room := h.rooms[client.roomID]
+			if room == nil {
+				fmt.Println("--> create new room")
+				// First client in the room, create a new one
+				room = make(map[*Client]bool)
+				h.rooms = make(map[string]map[*Client]bool)
+				h.rooms[client.roomID] = room
+			}
+			room[client] = true
 		case client := <-h.unregister:
-			if _, ok := h.clients[client]; ok {
-				delete(h.clients, client)
-				close(client.send)
+			room := h.rooms[client.roomID]
+			if room != nil {
+				if _, ok := room[client]; ok {
+					delete(room, client)
+					close(client.send)
+					if len(room) == 0 {
+						// This was last client in the room, delete the room
+						delete(h.rooms, client.roomID)
+					}
+				}
 			}
 		case message := <-h.Broadcast:
-			for client := range h.clients {
-				select {
-				case client.send <- message.Data:
-				default:
-					close(client.send)
-					delete(h.clients, client)
+			// fmt.Println(message.Data)
+			room := h.rooms[message.roomID]
+			fmt.Println("message room ID: " + message.roomID)
+			fmt.Println(room)
+			if room != nil {
+				for client := range room {
+					select {
+					case client.send <- message.Data:
+					default:
+						close(client.send)
+						delete(room, client)
+					}
+				}
+				if len(room) == 0 {
+					// The room was emptied while broadcasting to the room.  Delete the room.
+					delete(h.rooms, message.roomID)
 				}
 			}
 		}
+
 	}
 }
