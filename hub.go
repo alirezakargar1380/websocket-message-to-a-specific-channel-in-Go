@@ -28,8 +28,8 @@ type Hub struct {
 	unregister chan *Client
 }
 
-func newHub() *Hub {
-	return &Hub{
+func newHub() Hub {
+	return Hub{
 		Broadcast:  make(chan *Message),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
@@ -37,19 +37,44 @@ func newHub() *Hub {
 	}
 }
 
-// var roomss Hub.rooms
-func (h *Hub) run() {
+var Rooms map[string]map[*Client]bool = make(map[string]map[*Client]bool)
+
+func (h Hub) run() {
 	for {
+		fmt.Println(Rooms)
 		select {
 		case client := <-h.register:
-
+			roomTest := Rooms[client.roomID]
+			if roomTest == nil {
+				r := make(map[*Client]bool)
+				Rooms[client.roomID] = r
+			}
+			Rooms[client.roomID][client] = true
+			break
+			// TEST
+			r := make(map[*Client]bool)
+			Rooms[client.roomID] = r
+			r[client] = true
+			break
 			room := h.rooms[client.roomID]
-			if room == nil {
+			rr := Rooms[client.roomID]
+			if rr == nil {
 				fmt.Println("--> create new room")
+				rr = make(map[*Client]bool)
+				Rooms = make(map[string]map[*Client]bool)
+				Rooms[client.roomID] = rr
+			}
+			// TEST
+
+			if room == nil {
+				// fmt.Println("--> create new room")
 				// First client in the room, create a new one
 				room = make(map[*Client]bool)
 				h.rooms = make(map[string]map[*Client]bool)
 				h.rooms[client.roomID] = room
+
+				Rooms = make(map[string]map[*Client]bool)
+				Rooms[client.roomID] = room
 			}
 			room[client] = true
 		case client := <-h.unregister:
@@ -66,7 +91,7 @@ func (h *Hub) run() {
 			}
 		case message := <-h.Broadcast:
 			// fmt.Println(message.Data)
-			room := h.rooms[message.roomID]
+			room := Rooms[message.roomID]
 			fmt.Println("message room ID: " + message.roomID)
 			fmt.Println(room)
 			if room != nil {

@@ -41,7 +41,7 @@ var upgrader = websocket.Upgrader{
 // Client is a middleman between the websocket connection and the hub.
 type Client struct {
 	roomID string
-	hub    *Hub
+	hub    Hub
 
 	// The websocket connection.
 	conn *websocket.Conn
@@ -105,7 +105,7 @@ func (c *Client) writePump() {
 			if err != nil {
 				return
 			}
-			fmt.Println(message)
+			// fmt.Println(message)
 			w.Write(message)
 
 			// Add queued chat messages to the current websocket message.
@@ -128,7 +128,7 @@ func (c *Client) writePump() {
 }
 
 // serveWs handles websocket requests from the peer.
-func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
+func serveWs(hub Hub, w http.ResponseWriter, r *http.Request) {
 	params := r.URL.Query()
 	key1 := params.Get("d")
 	fmt.Println("room key is: " + key1)
